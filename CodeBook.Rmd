@@ -1,0 +1,132 @@
+---
+title: "Cleaning Activity Data"
+author: "S. Hughes"
+date: "1/9/2017"
+output: 
+    md_document:
+        variant: markdown_github
+---
+
+Created variables:
+url                     - url of data sourced  
+activity_labels         - vector of different activity names  
+features                - vector of differnt feature names (X data)  
+X_train/X_test          - Imported raw data for training/test sets  
+subject_train/  
+subject_tests           - Imported subjects id for training/test sets  
+y_train/y_test          - Imported raw activiies for training/test sets  
+y_train_labelled/  
+y_test_labelled         - y values given descriptive labels  
+training/test           - full data set for trainin/test (y, subj, X)  
+completeData            - merged training/test data set  
+X_meansd                - X data set with only "mean" or "std" features  
+meansdData              - mean of X_meansd by activity and subject  
+  
+Downloads libraries used for markdown
+knitr, tidyr, dplyr
+```{r setup, max.print = 0}
+library(knitr)
+library(tidyr)
+library(dplyr)
+```
+
+Downloads file from source
+```{r getData}
+temp <- tempfile()
+url <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
+download.file(url, temp, method = "curl")
+```
+
+Downloads information about features and activity
+```{r getLabels}
+con <- unz(temp,"UCI\ HAR\ Dataset/activity_labels.txt")
+activity_labels <- read.table(con)
+activity_labels <- as.character(activity_labels$V2)
+
+con <- unz(temp,"UCI\ HAR\ Dataset/features.txt")
+features <- read.table(con)
+features <- as.character(features$V2) 
+```
+
+
+Unzips and reads in training data
+```{r getTraining}
+con <- unz(temp,"UCI\ HAR\ Dataset/train/X_train.txt")
+X_train <- read.table(con)
+
+con <- unz(temp,"UCI\ HAR\ Dataset/train/y_train.txt")
+y_train <- read.table(con)
+
+con <- unz(temp,"UCI\ HAR\ Dataset/train/subject_train.txt")
+subject_train <- read.table(con)
+```
+
+Unzips and reads in test data
+```{r getTest}
+con <- unz(temp,"UCI\ HAR\ Dataset/test/X_test.txt")
+X_test <- read.table(con)
+
+con <- unz(temp,"UCI\ HAR\ Dataset/test/y_test.txt")
+y_test <- read.table(con)
+
+con <- unz(temp,"UCI\ HAR\ Dataset/test/subject_test.txt")
+subject_test <- read.table(con)
+
+unlink(temp)
+```
+
+###3. Uses descriptive activity names to name the activities in the data set
+Renames the y values by the description given in the activity labels
+```{r label_y}
+label_activity <- function(x) activity_labels[x]
+
+y_train_labelled <- sapply(y_train, label_activity)
+y_test_labelled <- sapply(y_test, label_activity)
+
+table(y_train_labelled)
+```
+
+###4. Appropriately labels the data set with descriptive variable names.
+Makes the training data into a single data frame. 
+Renames the features by the description given in the features labels.
+```{r makeTrain}
+training <- data.frame(y_train_labelled, subject_train, X_train)
+colnames(training) <- c("Activity", "Subject", features)
+```
+Makes the test data into a single data frame. 
+Renames the features by the description given in the features labels.
+```{r makeTest}
+test <- data.frame(y_test_labelled, subject_test, X_test)
+colnames(test) <- c("Activity", "Subject", features)
+```
+
+
+###1. Merges the training and the test sets to create one data set.
+Binds test data and training data to get complete data
+```{r makeComplete}
+completeData <- rbind(training, test)
+head(completeData[,1:4])
+```
+
+###2. Extracts only the measurements on the mean and standard deviation for each measurement.
+Extracts all the features with either mean or standard deviation included in the discription. This includes mean frequency.
+```{r meansdMeasures}
+X_meansd <- completeData[,grepl("mean|std",names(completeData))]
+head(X_meansd[,1:4])
+```
+
+###6. From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject
+
+Prints out the mean of each variable for each activity (6) and subject (30).
+```{r, max.print = 15}
+meansdData <- data.frame(completeData[,1:2], X_meansd) %>%
+              tbl_df() %>%
+              group_by(Activity, Subject)%>%
+              summarize_all(mean) %>%
+              print
+```
+
+Details about the session
+```{r}
+sessionInfo()
+```
